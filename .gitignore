@@ -1,0 +1,36 @@
+desktop.ini
+node_modules
+# Mirror de imagens é grande; no fork commitamos só assets HotDQ custom
+img/**
+!img/
+!img/adventure/
+!img/adventure/HotDQ/
+!img/adventure/HotDQ/**
+
+# IntelliJ project files
+.idea/
+*.iml
+
+# Visual Studio Code project files
+.vscode/
+
+# Misc dev/scripting files
+trash
+trash_in
+node_
+
+# Generated files
+sitemap.xml
+*.DS_Store
+Thumbs.db
+.rsync-filter
+
+# Generated service worker files
+sw.js
+# sw-injector.js — versionado neste fork (no-op); gerado a partir de sw-injector-template.js no upstream
+
+# Log files
+*.log
+
+# Dev scripts
+dev-*.sh

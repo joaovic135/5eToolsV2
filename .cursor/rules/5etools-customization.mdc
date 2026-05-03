@@ -1,0 +1,74 @@
+---
+description: Playbook de customização 5etools — aventuras, mapas player/DM, core
+alwaysApply: true
+---
+
+# Customizações neste fork (5etools)
+
+## O que não fazer
+
+- **Não** recriar módulo isolado `hdq/` nem injeção pesada em `sw-injector.js` salvo pedido explícito.
+- **Não** refatorar o core além do necessário para o caso.
+
+## Onde colocar mudanças
+
+| Área | Ficheiros |
+|------|-----------|
+| Conteúdo da aventura (galerias, `mapRegions`, `mapPlayer`, `mapParent`) | `data/adventure/adventure-*.json` |
+| Botão do viewer, classes no título, `data-rd-packed-map`, meta do livro | `js/render.js` |
+| Lógica do viewer, polígonos, cliques, sub-mapas | `js/render-map.js` |
+| Estilos (ex.: margem título + botão) | `scss/includes/render.scss` → `npm run build:css` |
+| Imagens internas | `img/adventure/<Fonte>/...` → `Renderer.get().getMediaUrl("img", "adventure/<Fonte>/...")` |
+
+### Comando do projeto
+
+- **`/addplayermap`** — prompt reutilizável em `.cursor/commands/addplayermap.md`: pede caminho local da imagem de detalhe (ex. Downloads), ID do POI, mapa (path player + `mapParent.id`), aventura; corre `node node/add-player-map-copy.mjs` e aplica o playbook no código.
+
+---
+
+## Playbook: mapa **player** com regiões clicáveis (sem `mapRegions` no JSON)
+
+**Problema:** O mapa DM tem `mapRegions` e já ganha o botão via `RenderMap.pShowViewer`. O mapa **player** costuma ser `imageType: "mapPlayer"` **sem** `mapRegions`; a galeria pode remover `imageType` no render — a detecção deve usar **`href.path`** + **`mapParent.id`**, não só `mapPlayer`.
+
+**Solução padrão:** Manter dados da aventura no JSON; definir polígonos no **espaço do mapa parent** (DM) em `render-map.js`; escalar para `entry.width` / `entry.height` do player; expor botão em `render.js` que chama um `pShow…Viewer` dedicado; usar `opts` de `_getEleWindowContent` (overlay off, `onRegionClick` para sub-mapa ou fluxo default).
+
+### Checklist (ordem sugerida)
+
+1. **Dados** — Confirmar no JSON: path do player, `mapParent.id`, dimensões do player; path do DM e tamanho real do parent (para escala), IDs de área alvo (ex. `070`).
+2. **Asset** — Colocar ficheiros extra em `img/adventure/<Fonte>/`; URL em código: `getMediaUrl("img", "adventure/<Fonte>/ficheiro.ext")`.
+3. **`render-map.js`**
+   - Constantes: `_<AVENTURA>_<MAPA>_PARENT_W/H`, `_…_REGIONS_PARENT` (polígonos `{ area, points }` no espaço parent).
+   - `static get<Alvo>PlayerMapData(entry, href)` → `{ regions: scaled, width, height, href }`.
+   - `static _scale<Alvo>RegionsToPlayer(w, h)` — `sx = w/parentW`, `sy = h/parentH`.
+   - `static async pShow<Alvo>PlayerViewer(evt, ele)` — igual a `pShowViewer`: `JSON.parse(dataset.rdPackedMap)`, preencher `page`/`source`/`hash` a partir dos `data-rd-adventure-book-map-*`, `_pMutMapData`, `getShowWindow`, `_mutInitialZoom`.
+   - Passar a `_getEleWindowContent` um `opts`:
+     - `paintRegions: false` se o viewer for “limpo”;
+     - `onRegionClick: async ({ intersectedRegion, evt, … }) => { … return true se consumiu; return false para deixar o fluxo normal (_pGetArea, janelas de área, shift+click) }`;
+     - `helpExtraHtml: "<li>…</li>"` opcional.
+   - Sub-mapa: `static async _pOpen<Alvo>SubMap(evt)` com `mapData = { regions: [], href }`, mesmo padrão de janela que `pShowViewer` / janela secundária.
+4. **`render.js`**
+   - `this._renderImage_is<Alvo>PlayerMap = function (entry) { … }` — `entry.type === "image"`, `href.path` inclui fragmento único do ficheiro player, `mapParent.id` coincide (string ou número).
+   - `this._renderImage_get<Alvo>PlayerMapData = function (entry) { return JSON.stringify(RenderMap.get<Alvo>PlayerMapData(entry, this._renderImage_getUrl(entry))).escapeQuotes(); }`.
+   - Em `_renderImage`:
+     - `isHotdqGreenestPlayerViewer` → generalizar nome (`isXxxPlayerViewer`) quando houver mais casos; incluir na condição da faixa de título e em `ptAdventureBookMeta` **como o DM** (`entry.mapRegions || isXxxPlayerViewer`) para existir `data-rd-adventure-book-map-*`.
+     - Botão: `onclick="RenderMap.pShow<Alvo>PlayerViewer(event, this)"` + `data-rd-packed-map="${this._renderImage_get<Alvo>PlayerMapData(entry)}"` + mesmo `title`/classes que o botão DM.
+     - Se o título encostar ao botão: classe extra no inner — `ve-rd__image-title-inner--before-viewer-btn` + regra em `render.scss` (`margin-inline-end`).
+5. **CSS** — `npm run build:css` após mudar `scss`.
+6. **Testar** — Aventura no livro: galeria DM + Player, botão, cliques, sub-mapa, shift+click para saltar se aplicável.
+
+### Convenções de nome
+
+- Prefixo estável por mapa: `HotdqGreenest`, `HotdqRaiderCamp`, etc. (evita colisão entre aventuras).
+- Funções `RenderMap`: `get…MapData`, `pShow…PlayerViewer`, `_pOpen…` para sub-mapas.
+- Funções `Renderer`: `_renderImage_is…PlayerMap`, `_renderImage_get…PlayerMapData`.
+
+### Referência implementada (HotDQ — Greenest, cap. 1)
+
+- Player: path contém `008-map-1-1-greenest-player`, `mapParent.id` **219**; parent **4050×3000**; região **070** → `greenestKeepV2.png`.
+- Ver implementação atual em `render.js` / `render-map.js` como modelo de copy-paste.
+
+### Princípios
+
+- **Um viewer “especial” por mapa** até existir abstração; não generalizar antes de ter 2–3 casos iguais.
+- Reutilizar sempre `_getEleWindowContent`, `data-rd-packed-map`, meta `adventureBookPage` / `Source` / `Hash`.
+- `sw-injector.js` permanece no-op salvo necessidade contrária.
