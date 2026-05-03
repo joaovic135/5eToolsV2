@@ -24,6 +24,12 @@ alwaysApply: true
 
 - **`/addplayermap`** — prompt reutilizável em `.cursor/commands/addplayermap.md`: pede caminho local da imagem de detalhe (ex. Downloads), ID do POI, mapa (path player + `mapParent.id`), aventura; corre `node node/add-player-map-copy.mjs` e aplica o playbook no código.
 
+### Player Version e projetor (mesa)
+
+- A intenção do **mapa player** é uso em **mesa**, muitas vezes **projetado** num segundo ecrã.
+- O DMV **player** (e sub-mapas pensados para jogadores) deve privilegiar **janela dedicada** (`window.open`) quase maximizada e botão **Fullscreen** no viewer; **Shift** ao abrir mantém o modo **inline** na página do livro (revisão no portátil).
+- O DMV do **mapa DM** (regiões azuis) mantém o padrão original: inline por defeito, **Shift** para popout.
+
 ---
 
 ## Playbook: mapa **player** com regiões clicáveis (sem `mapRegions` no JSON)

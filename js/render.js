@@ -570,7 +570,9 @@ globalThis.Renderer = function () {
 	this._renderImage_isHotdqGreenestPlayerMap = function (entry) {
 		if (entry?.type !== "image") return false;
 		const path = entry?.href?.type === "internal" ? entry.href.path : "";
-		if (!path.includes("008-map-1-1-greenest-player")) return false;
+		const isGreenestPlayerAsset = path.includes("008-map-1-1-greenest-player")
+			|| path.includes("greenest-player-v3");
+		if (!isGreenestPlayerAsset) return false;
 		const pid = entry?.mapParent?.id;
 		return pid === "219" || pid === 219 || String(pid) === "219";
 	};
@@ -621,7 +623,7 @@ globalThis.Renderer = function () {
 			}
 
 			if (isHotdqGreenestPlayerViewer) {
-				textStack[0] += `<button class="ve-btn ve-btn-xs ve-btn-default ve-rd__image-btn-viewer" onclick="RenderMap.pShowHotdqGreenestPlayerViewer(event, this)" data-rd-packed-map="${this._renderImage_getHotdqGreenestPlayerMapData(entry)}" ${ptAdventureBookMeta} title="Open Dynamic Viewer (SHIFT to Open in New Window)"><span class="glyphicon glyphicon-picture"></span> ${Renderer.stripTags(entry.title) || "Dynamic Viewer"}</button>`;
+				textStack[0] += `<button class="ve-btn ve-btn-xs ve-btn-default ve-rd__image-btn-viewer" onclick="RenderMap.pShowHotdqGreenestPlayerViewer(event, this)" data-rd-packed-map="${this._renderImage_getHotdqGreenestPlayerMapData(entry)}" ${ptAdventureBookMeta} title="Open Dynamic Viewer (opens in a new window for projector; SHIFT keeps viewer on this page)"><span class="glyphicon glyphicon-picture"></span> ${Renderer.stripTags(entry.title) || "Dynamic Viewer"}</button>`;
 			}
 
 			if (entry.credit) textStack[0] += `<div class="ve-rd__image-credit ve-muted"><span class="glyphicon glyphicon-pencil" title="Art Credit"></span> ${this.render(entry.credit)}</div>`;
@@ -760,6 +762,7 @@ globalThis.Renderer = function () {
 			page: entry.page,
 			source: entry.source,
 			hash: entry.hash,
+			...(entry.grid ? {grid: entry.grid} : {}),
 			...entry.expectsLightBackground
 				? {expectsLightBackground: true}
 				: entry.expectsDarkBackground
@@ -16100,11 +16103,23 @@ Renderer.hover = class {
 		eleContent = e_({ele: eleContent});
 
 		const dimensions = opts.fnGetPopoutSize ? opts.fnGetPopoutSize() : {width: 600, height: eleContent.outerHeighte()};
-		const win = window.open(
-			"",
-			opts.title || "",
-			`width=${dimensions.width},height=${dimensions.height}location=0,menubar=0,status=0,titlebar=0,toolbar=0`,
-		);
+		// No feature string → most browsers open a new tab; sized features → separate window (projector drag).
+		// `existingWindow`: opened synchronously from the user gesture (before any await) so the browser does not block it.
+		let win = opts.existingWindow;
+		if (!win) {
+			win = opts.popoutOpenAsNewTab
+				? window.open("", "_blank")
+				: window.open(
+					"",
+					opts.title || "",
+					`width=${dimensions.width},height=${dimensions.height},location=0,menubar=0,status=0,titlebar=0,toolbar=0`,
+				);
+		}
+
+		if (!win) {
+			JqueryUtil.doToast({type: "warning", content: `Could not open a new window — check your browser's popup blocker.`});
+			return null;
+		}
 
 		// If this is a new window, bootstrap general page elements/variables.
 		// Otherwise, we can skip straight to using the window.
@@ -16212,6 +16227,7 @@ Renderer.hover = class {
 	 * @param [opts.fnGetPopoutSize] A function which gets a `{width: ..., height: ...}` object with dimensions for a
 	 * popout window.
 	 * @param [opts.isPopout] If the window should be immediately popped out.
+	 * @param [opts.popoutOpenAsNewTab] If true, `window.open` uses a new browser tab (no fixed size) instead of a sized popup window.
 	 * @param [opts.compactReferenceData] Reference (e.g. page/source/hash/others) which can be used to load the contents into the DM screen.
 	 * @param [opts.sourceData] Source JSON (as raw as possible) used to construct this popout.
 	 * @param [opts.isResizeOnlyWidth]
@@ -16593,6 +16609,7 @@ Renderer.hover = class {
 
 	static async _getShowWindow_pDoPopout ({eleHov, position, fnsCleanup, hoverId, opts, hoverWindow, eleContent}, {evt} = {}) {
 		const winPopup = await Renderer.hover.pDoShowBrowserWindow(eleContent, opts);
+		if (!winPopup) return;
 		Renderer.hover._getShowWindow_doClose({eleHov, position, fnsCleanup, hoverId, opts, hoverWindow});
 		hoverWindow._winPopup = winPopup;
 	}
