@@ -7,6 +7,9 @@ img/**
 !img/adventure/HotDQ/
 !img/adventure/HotDQ/**
 
+# Top-down token PNGs (FA / FREE) são grandes; se versionares só JSON em data/hdq/, copia packs para img/hdq localmente.
+# img/hdq/fa-tokens/** e img/hdq/free-tokens/** ficam ignorados pelo img/** acima.
+
 # IntelliJ project files
 .idea/
 *.iml

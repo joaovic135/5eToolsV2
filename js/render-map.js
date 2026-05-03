@@ -85,6 +85,16 @@ export class RenderMap {
 			area: "07f",
 			points: [[178, 2145], [215, 2055], [329, 2077], [425, 2068], [529, 2129], [548, 2237], [486, 2302], [323, 2298], [197, 2237]],
 		},
+		// Player-only POI: market — rosa ref (~280,420); match (1255,1948); +50%↑y +30%→x; +10% gap_y↑ +10%|Δx|→; +15%|Δx|→ (centre ~1792,1031)
+		{
+			area: "071",
+			points: [[1922, 1031], [1884, 1123], [1792, 1161], [1700, 1123], [1662, 1031], [1700, 939], [1792, 901], [1884, 939]],
+		},
+		// Player-only POI #6: street — template+40%|Δx|→ then +20% gap_y↑ (gap_y=1948-420); centre ~1645,1642, r=130
+		{
+			area: "072",
+			points: [[1775, 1642], [1737, 1734], [1645, 1772], [1553, 1734], [1515, 1642], [1553, 1550], [1645, 1512], [1737, 1550]],
+		},
 	]);
 
 	/* -------------------------------------------- */
@@ -118,6 +128,66 @@ export class RenderMap {
 	static _getDmvTokenStorageKey (mapData) {
 		const id = `${mapData.href || ""}|${mapData.page || ""}|${mapData.source || ""}|${mapData.hash || ""}`;
 		return `5e_dmv_tokens:${id.slice(0, 240)}`;
+	}
+
+	/**
+	 * Merged top-down token paths: `data/hdq/free-creature-token-map.json` then `data/hdq/fa-token-map.json`
+	 * (FA entries override FREE on the same normalized creature name).
+	 */
+	static _dmvFaTokenMapP = null;
+
+	static _normalizeDmvFaCreatureName (name) {
+		return String(name || "")
+			.toLowerCase()
+			.replace(/[\u2019']/g, "")
+			.replace(/\s*\([^)]*\)\s*$/u, "")
+			.replace(/\s+/g, " ")
+			.trim();
+	}
+
+	/**
+	 * @param {Window} appWindow Host with `Renderer` + `DataUtil` (opener when DMV is a popout).
+	 */
+	static async _pLoadDmvFaTokenMap (appWindow) {
+		if (this._dmvFaTokenMapP) return this._dmvFaTokenMapP;
+		const win = appWindow || globalThis;
+		const R = win.Renderer || globalThis.Renderer;
+		const baseUrl = R?.get?.()?.baseUrl ?? "";
+		this._dmvFaTokenMapP = (async () => {
+			const DU = win.DataUtil || globalThis.DataUtil;
+			if (!DU?.loadJSON) return {};
+			const parseMap = raw => {
+				const m = raw?.map;
+				if (!m || typeof m !== "object") return {};
+				const out = {};
+				for (const [k, v] of Object.entries(m)) {
+					if (typeof v === "string" && v) out[k] = v;
+					else if (v && typeof v === "object" && v.rel) out[k] = v.rel;
+				}
+				return out;
+			};
+			try {
+				const [rawFree, rawFa] = await Promise.all([
+					DU.loadJSON(`${baseUrl}data/hdq/free-creature-token-map.json`).catch(() => ({})),
+					DU.loadJSON(`${baseUrl}data/hdq/fa-token-map.json`).catch(() => ({})),
+				]);
+				return {...parseMap(rawFree), ...parseMap(rawFa)};
+			} catch {
+				return {};
+			}
+		})();
+		return this._dmvFaTokenMapP;
+	}
+
+	/**
+	 * @returns {Promise<string|null>} Path for `Renderer.get().getMediaUrl("img", …)` (FREE map, then FA override) or null.
+	 */
+	static async _pGetDmvFaTokenRelForMonster (mon, appWindow) {
+		if (!mon?.name) return null;
+		const map = await this._pLoadDmvFaTokenMap(appWindow);
+		const n = this._normalizeDmvFaCreatureName(mon.name);
+		if (n && map[n]) return map[n];
+		return null;
 	}
 
 	/**
@@ -299,21 +369,49 @@ export class RenderMap {
 				popoutOpenAsNewTab: true,
 				paintRegions: false,
 				poiDebugMarkers: true,
-				helpExtraHtml: "<li>Faint <b>i</b> markers show POI centroids (alignment check).</li><li>Click the keep (070) for a detailed map.</li><li><kbd>SHIFT</kbd> while opening keeps the viewer inline on this page (for laptop review).</li><li>Toolbar: <b>Fullscreen</b> map; <b>Add token</b> (bestiary); drag the image to move; top-left handle to resize; <kbd>ALT</kbd>+scroll on a token to resize; top-right <b>×</b> removes (with confirm).</li>",
+				helpExtraHtml: "<li>Faint <b>i</b> markers show POI centroids (alignment check).</li><li>POI detail: keep <b>070</b>; <b>074</b> tunnel grid; <b>07c</b> temple; <b>07f</b> watermill; <b>071</b> market; <b>072</b> street (well / junction).</li><li><kbd>SHIFT</kbd> while opening keeps the viewer inline on this page (for laptop review).</li><li>Toolbar: <b>Fullscreen</b> map; <b>Add token</b> (bestiary; optional top-down packs under <code>img/hdq/fa-tokens/</code> and <code>img/hdq/free-tokens/</code>); drag the image to move; top-left handle to resize; bottom-right <b>↻</b> or <kbd>SHIFT</kbd>+scroll on the image to rotate; <kbd>ALT</kbd>+scroll to resize; top-right <b>×</b> removes (with confirm).</li>",
 				onRegionClick: async ({intersectedRegion, evt: clickEvt}) => {
-					if (String(intersectedRegion.area).toLowerCase() !== "070") return false;
-					await RenderMap._pOpenHotdqGreenestKeepMap(clickEvt);
-					return true;
+					const a = String(intersectedRegion.area).toLowerCase();
+					if (a === "070") {
+						await RenderMap._pOpenHotdqGreenestKeepMap(clickEvt);
+						return true;
+					}
+					// Player map POI #2: area 074 → tunnel grid detail
+					if (a === "074") {
+						await RenderMap._pOpenHotdqGreenestTunnelGridMap(clickEvt);
+						return true;
+					}
+					// Player map POI #3: area 07c → temple detail
+					if (a === "07c") {
+						await RenderMap._pOpenHotdqGreenestTempleMap(clickEvt);
+						return true;
+					}
+					// Player map POI #4: area 07f → watermill detail
+					if (a === "07f") {
+						await RenderMap._pOpenHotdqGreenestWatermillMap(clickEvt);
+						return true;
+					}
+					// Player map POI #5: area 071 → market (custom region, town well / junction)
+					if (a === "071") {
+						await RenderMap._pOpenHotdqGreenestMarketMap(clickEvt);
+						return true;
+					}
+					// Player map POI #6: area 072 → street (second market slot: template-match octagon)
+					if (a === "072") {
+						await RenderMap._pOpenHotdqGreenestStreetMap(clickEvt);
+						return true;
+					}
+					return false;
 				},
 			},
 		});
 	}
 
-	static async _pOpenHotdqGreenestKeepMap (evt) {
+	static async _pOpenHotdqGreenestDetailViewer (evt, {title, imgRel}) {
 		const preTab = this._syncPreOpenPopoutTab(evt, true, true);
 		if (preTab === null) return;
 
-		const href = Renderer.get().getMediaUrl("img", "adventure/HotDQ/greenest-keep-v3.png");
+		const href = Renderer.get().getMediaUrl("img", imgRel);
 		const mapData = {regions: [], href};
 		await RenderMap._pMutMapData(mapData);
 		if (!mapData.loadedImage) {
@@ -324,7 +422,7 @@ export class RenderMap {
 		await this._pOpenDmvWithHoverWindow({
 			evt,
 			mapData,
-			title: "Greenest Keep",
+			title,
 			isProjectorDefaultPopout: true,
 			getWindowPosition: e => Renderer.hover.getWindowPositionExactVisibleBottom(
 				EventUtil.getClientX(e),
@@ -334,9 +432,33 @@ export class RenderMap {
 			preSyncedPopoutTab: preTab,
 			contentOpts: {
 				popoutOpenAsNewTab: true,
-				helpExtraHtml: "<li><kbd>SHIFT</kbd> while opening keeps the viewer inline.</li><li><b>Fullscreen</b> and <b>Add token</b> in the toolbar; tokens: drag image, top-left resize, top-right <b>×</b> (confirm), <kbd>ALT</kbd>+scroll.</li>",
+				helpExtraHtml: "<li><kbd>SHIFT</kbd> while opening keeps the viewer inline.</li><li><b>Fullscreen</b> and <b>Add token</b> in the toolbar (top-down prompt if <code>img/hdq/fa-tokens/</code> or <code>img/hdq/free-tokens/</code> is installed); tokens: drag image, top-left resize, bottom-right rotate, top-right <b>×</b> (confirm), <kbd>SHIFT</kbd>+scroll on image to rotate, <kbd>ALT</kbd>+scroll to scale.</li>",
 			},
 		});
+	}
+
+	static async _pOpenHotdqGreenestKeepMap (evt) {
+		return this._pOpenHotdqGreenestDetailViewer(evt, {title: "Greenest Keep", imgRel: "adventure/HotDQ/greenest-keep-v3.png"});
+	}
+
+	static async _pOpenHotdqGreenestTunnelGridMap (evt) {
+		return this._pOpenHotdqGreenestDetailViewer(evt, {title: "Tunnel grid", imgRel: "adventure/HotDQ/greenest-tunnel-grid.png"});
+	}
+
+	static async _pOpenHotdqGreenestTempleMap (evt) {
+		return this._pOpenHotdqGreenestDetailViewer(evt, {title: "Temple", imgRel: "adventure/HotDQ/greenest-temple.webp"});
+	}
+
+	static async _pOpenHotdqGreenestWatermillMap (evt) {
+		return this._pOpenHotdqGreenestDetailViewer(evt, {title: "Watermill", imgRel: "adventure/HotDQ/greenest-watermill.webp"});
+	}
+
+	static async _pOpenHotdqGreenestMarketMap (evt) {
+		return this._pOpenHotdqGreenestDetailViewer(evt, {title: "Market", imgRel: "adventure/HotDQ/greenest-market.webp"});
+	}
+
+	static async _pOpenHotdqGreenestStreetMap (evt) {
+		return this._pOpenHotdqGreenestDetailViewer(evt, {title: "Street", imgRel: "adventure/HotDQ/greenest-street.webp"});
 	}
 
 	/* -------------------------------------------- */
@@ -543,7 +665,7 @@ export class RenderMap {
 		}, 150);
 
 		const applyTokenDom = (t, tokenEls) => {
-			const {wrap} = tokenEls;
+			const {wrap, img} = tokenEls;
 			const zz = mapData.zoomLevel;
 			const diam = (t.baseDiameter || defaultTokenDiameter) * (t.scale || 1);
 			const disp = diam * zz;
@@ -554,6 +676,10 @@ export class RenderMap {
 				top: `${py - disp / 2}px`,
 				width: `${disp}px`,
 				height: `${disp}px`,
+			});
+			img.css({
+				transform: `rotate(${t.rotation || 0}deg)`,
+				transformOrigin: "center center",
 			});
 		};
 
@@ -743,6 +869,8 @@ export class RenderMap {
 					objectFit: "contain",
 					pointerEvents: "auto",
 					cursor: "grab",
+					transform: `rotate(${t.rotation || 0}deg)`,
+					transformOrigin: "center center",
 				});
 
 				const btnDel = ee`<button type="button" class="rd__dmv-token-del" aria-label="Remove token">×</button>`;
@@ -767,30 +895,61 @@ export class RenderMap {
 					boxShadow: "0 0 0 1px rgba(255,255,255,0.25)",
 				});
 
-				const hResize = ee`<div class="rd__dmv-token-resize" title="Drag to resize"></div>`;
+				const hResize = ee`<div class="rd__dmv-token-resize" title="Drag to resize (distance from centre)">⤢</div>`;
 				hResize.css({
 					position: "absolute",
 					left: "2px",
 					top: "2px",
 					zIndex: "5",
-					width: "10px",
-					height: "10px",
-					borderRadius: "0",
-					background: "transparent",
-					border: "none",
-					borderLeft: "2px solid rgba(0,0,0,0.32)",
-					borderTop: "2px solid rgba(0,0,0,0.32)",
+					width: "13px",
+					height: "13px",
+					lineHeight: "11px",
+					fontSize: "11px",
+					fontWeight: "600",
+					textAlign: "center",
+					padding: "0",
+					color: "rgba(0,0,0,0.45)",
 					cursor: "nwse-resize",
-					boxSizing: "border-box",
+					borderRadius: "50%",
+					border: "1px solid rgba(0,0,0,0.18)",
+					background: "rgba(255,255,255,0.42)",
 					opacity: "0.38",
-					transition: "opacity 0.12s ease, border-color 0.12s ease",
-					filter: "drop-shadow(0 0 0.5px rgba(255,255,255,0.7))",
+					transition: "opacity 0.12s ease, background 0.12s ease, color 0.12s ease",
+					boxShadow: "0 0 0 1px rgba(255,255,255,0.25)",
+					boxSizing: "border-box",
+					userSelect: "none",
+				});
+
+				const hRotate = ee`<div class="rd__dmv-token-rotate" title="Drag to rotate; Shift+scroll on image for steps">↻</div>`;
+				hRotate.css({
+					position: "absolute",
+					right: "2px",
+					bottom: "2px",
+					zIndex: "5",
+					width: "13px",
+					height: "13px",
+					lineHeight: "11px",
+					fontSize: "11px",
+					fontWeight: "600",
+					textAlign: "center",
+					padding: "0",
+					color: "rgba(0,0,0,0.45)",
+					cursor: "grab",
+					borderRadius: "50%",
+					border: "1px solid rgba(0,0,0,0.18)",
+					background: "rgba(255,255,255,0.42)",
+					opacity: "0.38",
+					transition: "opacity 0.12s ease, background 0.12s ease, color 0.12s ease",
+					boxShadow: "0 0 0 1px rgba(255,255,255,0.25)",
+					boxSizing: "border-box",
+					userSelect: "none",
 				});
 
 				const tokenEls = {wrap, img};
 				wrap.appends(img);
 				wrap.appends(btnDel);
 				wrap.appends(hResize);
+				wrap.appends(hRotate);
 
 				let tokenChromeHover = false;
 				let tokenChromeFocus = false;
@@ -798,6 +957,7 @@ export class RenderMap {
 					const o = on ? "1" : "0.38";
 					btnDel.css({opacity: o});
 					hResize.css({opacity: o});
+					hRotate.css({opacity: o});
 				};
 				const refreshTokenChrome = () => setTokenChromeOpaque(tokenChromeHover || tokenChromeFocus);
 				wrap.onn("mouseenter", () => {
@@ -876,6 +1036,36 @@ export class RenderMap {
 						.onn("mouseup", onUp);
 				});
 
+				hRotate.onn("mousedown", evt => {
+					if (evt.button !== 0) return;
+					evt.preventDefault();
+					evt.stopPropagation();
+					const r0 = wrap.getBoundingClientRect();
+					const cx0 = r0.left + r0.width / 2;
+					const cy0 = r0.top + r0.height / 2;
+					const clientAng = (ex, ey) => Math.atan2(ey - cy0, ex - cx0) * 180 / Math.PI;
+					const aStart = clientAng(EventUtil.getClientX(evt), EventUtil.getClientY(evt));
+					const rotStart = t.rotation || 0;
+					const onMove = ev => {
+						const aNow = clientAng(EventUtil.getClientX(ev), EventUtil.getClientY(ev));
+						let d = aNow - aStart;
+						while (d > 180) d -= 360;
+						while (d < -180) d += 360;
+						t.rotation = rotStart + d;
+						applyTokenDom(t, tokenEls);
+					};
+					const onUp = () => {
+						getDragBody()
+							.off("mousemove", onMove)
+							.off("mouseup", onUp);
+						applyTokenDom(t, tokenEls);
+						saveTokens();
+					};
+					getDragBody()
+						.onn("mousemove", onMove)
+						.onn("mouseup", onUp);
+				});
+
 				img.onn("mousedown", evt => {
 					if (evt.button !== 0) return;
 					evt.preventDefault();
@@ -908,6 +1098,15 @@ export class RenderMap {
 				});
 
 				img.onn("wheel", evt => {
+					if (evt.shiftKey && !evt.altKey) {
+						evt.preventDefault();
+						evt.stopPropagation();
+						const step = (evt.deltaY < 0 ? 1 : -1) * (evt.ctrlKey ? 15 : 5);
+						t.rotation = (t.rotation || 0) + step;
+						applyTokenDom(t, tokenEls);
+						saveTokens();
+						return;
+					}
 					if (!evt.altKey) return;
 					evt.preventDefault();
 					evt.stopPropagation();
@@ -1154,7 +1353,17 @@ export class RenderMap {
 					if (!DL || !Url || !R) throw new Error("Bestiary loader unavailable in this window");
 					const mon = await DL.pCacheAndGet(Url.PG_BESTIARY, res.doc.s, res.doc.u);
 					if (!mon) return;
-					const href = R.monster.getTokenUrl(mon);
+					const dlgWin = modalHostWindow ?? globalThis;
+					let href = R.monster.getTokenUrl(mon);
+					const faRel = await RenderMap._pGetDmvFaTokenRelForMonster(mon, appWindow);
+					if (faRel) {
+						const faHref = R.get().getMediaUrl("img", faRel);
+						const useTopdown = dlgWin.confirm(
+							`Existe arte de token top-down instalada para "${mon.name}".\n\n`
+							+ `OK = usar token top-down\nCancelar = usar token do bestiário`,
+						);
+						if (useTopdown) href = faHref;
+					}
 					mapData.placedTokens.push({
 						id: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
 						mapX: mapData.width / 2,
@@ -1162,6 +1371,7 @@ export class RenderMap {
 						href,
 						label: mon.name,
 						scale: 1,
+						rotation: 0,
 						baseDiameter: defaultTokenDiameter,
 					});
 					doClose();
@@ -1192,6 +1402,8 @@ export class RenderMap {
 					wrpAppendHtmlStr(`<div class="ve-ui-search__message text-danger">Creature index unavailable.</div>`);
 					return;
 				}
+
+				const topdownTokenMap = await RenderMap._pLoadDmvFaTokenMap(appWindow);
 
 				const searchCfg = {
 					fields: {
@@ -1233,6 +1445,17 @@ export class RenderMap {
 						rowEle.tabIndex = 0;
 						const spName = docUi.createElement("span");
 						spName.textContent = res.doc.n ?? "";
+						const faKey = RenderMap._normalizeDmvFaCreatureName(res.doc.n ?? "");
+						if (faKey && topdownTokenMap[faKey]) {
+							const spFa = docUi.createElement("span");
+							spFa.className = "ve-small ve-ml-1 ve-no-shrink";
+							spFa.title = "Token top-down disponível (pack FA ou FREE em img/hdq; escolha ao adicionar)";
+							spFa.textContent = "TD";
+							spFa.style.cssText = "font-size:0.62rem;font-weight:700;letter-spacing:0.02em;padding:1px 4px;border-radius:3px;border:1px solid rgba(51,122,183,0.45);background:rgba(51,122,183,0.12);color:#337ab7;line-height:1.2;";
+							rowEle.append(spName, spFa);
+						} else {
+							rowEle.append(spName);
+						}
 						const spSrc = docUi.createElement("span");
 						spSrc.className = "ve-muted ve-small ve-ml-auto";
 						try {
@@ -1240,7 +1463,7 @@ export class RenderMap {
 						} catch {
 							spSrc.textContent = "";
 						}
-						rowEle.append(spName, spSrc);
+						rowEle.append(spSrc);
 						const row = globalThis.e_({ele: rowEle});
 						SearchWidget.bindRowHandlers({
 							result: res,
@@ -1307,7 +1530,7 @@ export class RenderMap {
 						<li>Right-click and drag to pan.</li>
 						<li><kbd>CTRL</kbd>-scroll to zoom.</li>
 						<li><b>Zoom to Fit</b> shows the entire map; <b>Zoom to Fill</b> uses the full viewport (may crop).</li>
-						${enableTokens ? "<li><b>Add token</b> picks a creature from the bestiary; drag the token image to move; top-left corner handle to resize; <kbd>ALT</kbd>+scroll on a token to resize; top-right <b>×</b> removes one (confirm); <b>Clear tokens</b> removes all.</li>" : ""}
+						${enableTokens ? "<li><b>Add token</b> picks a creature from the bestiary; if a top-down file exists under <code>img/hdq/fa-tokens/</code> or <code>img/hdq/free-tokens/</code> (Forgotten Adventures overrides FREE on the same creature), you are prompted to use it or the default bestiary token. List rows show <b>TD</b> when a top-down path is mapped. Drag the token image to move; top-left handle to resize; bottom-right <b>↻</b> (or <kbd>SHIFT</kbd>+scroll on the image) to rotate; <kbd>ALT</kbd>+scroll on a token to resize; top-right <b>×</b> removes one (confirm); <b>Clear tokens</b> removes all.</li>" : ""}
 						${helpExtraHtml}
 					</ul>
 				`);
