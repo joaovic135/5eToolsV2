@@ -125,9 +125,40 @@ export class RenderMap {
 		};
 	}
 
+	/** Key for `localStorage` (tokens + assets); one key per map identity (href|page|source|hash). */
 	static _getDmvTokenStorageKey (mapData) {
 		const id = `${mapData.href || ""}|${mapData.page || ""}|${mapData.source || ""}|${mapData.hash || ""}`;
 		return `5e_dmv_tokens:${id.slice(0, 240)}`;
+	}
+
+	/**
+	 * Ensure each placed token has a finite integer `stackZ` (stacking order among tokens + assets).
+	 * Saves without `stackZ` keep legacy paint order (array index = bottom to top).
+	 * @param {Array} placedTokens
+	 */
+	static _normalizePlacedTokensStackZ (placedTokens) {
+		if (!Array.isArray(placedTokens) || !placedTokens.length) return;
+		const decorated = placedTokens.map((t, i) => ({t, i}));
+		decorated.sort((a, b) => {
+			const za = typeof a.t.stackZ === "number" && Number.isFinite(a.t.stackZ) ? a.t.stackZ : a.i;
+			const zb = typeof b.t.stackZ === "number" && Number.isFinite(b.t.stackZ) ? b.t.stackZ : b.i;
+			if (za !== zb) return za - zb;
+			return a.i - b.i;
+		});
+		decorated.forEach((d, rank) => {
+			d.t.stackZ = rank;
+		});
+	}
+
+	/** Next free `stackZ` so a newly placed token/asset paints on top. */
+	static _nextDmvPlacedTokenStackZ (placedTokens) {
+		if (!Array.isArray(placedTokens) || !placedTokens.length) return 0;
+		let m = -1;
+		for (const t of placedTokens) {
+			const z = Number(t?.stackZ);
+			if (Number.isFinite(z) && z > m) m = z;
+		}
+		return m + 1;
 	}
 
 	/**
@@ -177,6 +208,39 @@ export class RenderMap {
 			}
 		})();
 		return this._dmvFaTokenMapP;
+	}
+
+	/** @type {Promise<Array<{id: string, rel: string, name: string}>>|null} */
+	static _dmvAssetManifestP = null;
+
+	/** Call after regenerating `data/hdq/dmv-asset-manifest.json` if you need a new fetch without reloading the tab. */
+	static clearDmvAssetManifestCache () {
+		this._dmvAssetManifestP = null;
+	}
+
+	/**
+	 * DMV asset picker manifest (`data/hdq/dmv-asset-manifest.json`); images under `img/hdq/fa-assets/`.
+	 * Cached once per page load (full FA packs can be tens of MB JSON — avoid re-download/re-parse every modal open).
+	 * @param {Window} appWindow Host with `Renderer` + `DataUtil` (opener when DMV is a popout).
+	 */
+	static async _pLoadDmvAssetManifest (appWindow) {
+		if (this._dmvAssetManifestP) return this._dmvAssetManifestP;
+		const win = appWindow || globalThis;
+		const R = win.Renderer || globalThis.Renderer;
+		const baseUrl = R?.get?.()?.baseUrl ?? "";
+		this._dmvAssetManifestP = (async () => {
+			const DU = win.DataUtil || globalThis.DataUtil;
+			if (!DU?.loadJSON) return [];
+			try {
+				const raw = await DU.loadJSON(`${baseUrl}data/hdq/dmv-asset-manifest.json`);
+				const arr = raw?.assets;
+				if (!Array.isArray(arr)) return [];
+				return arr.filter(a => a && typeof a.rel === "string" && a.rel.length);
+			} catch {
+				return [];
+			}
+		})();
+		return this._dmvAssetManifestP;
 	}
 
 	/**
@@ -625,6 +689,7 @@ export class RenderMap {
 			helpExtraHtml = "",
 			poiDebugMarkers = false,
 			enableBestiaryTokens = true,
+			enableAssetLibrary = true,
 			popoutOpenAsNewTab = false,
 			fitFillInnerPad = {w: 10, h: 56},
 		} = opts;
@@ -635,14 +700,27 @@ export class RenderMap {
 		const storageKey = RenderMap._getDmvTokenStorageKey(mapData);
 		if (!mapData.placedTokens) {
 			try {
-				const raw = sessionStorage.getItem(storageKey);
+				let raw = localStorage.getItem(storageKey);
+				if (!raw) {
+					raw = sessionStorage.getItem(storageKey);
+					if (raw) {
+						try {
+							localStorage.setItem(storageKey, raw);
+						} catch { /* quota */ }
+						sessionStorage.removeItem(storageKey);
+					}
+				}
 				mapData.placedTokens = raw ? JSON.parse(raw) : [];
 			} catch {
 				mapData.placedTokens = [];
 			}
 		}
+		if (!Array.isArray(mapData.placedTokens)) mapData.placedTokens = [];
+		this._normalizePlacedTokensStackZ(mapData.placedTokens);
 
-		const enableTokens = enableBestiaryTokens !== false;
+		const enableCreatureTokens = enableBestiaryTokens !== false;
+		const enableAssetLib = enableAssetLibrary !== false;
+		const enablePlacedLayer = enableCreatureTokens || enableAssetLib;
 		const defaultTokenDiameter = (mapData.grid?.size != null && mapData.grid?.type !== "none")
 			? Number(mapData.grid.size)
 			: 80;
@@ -658,9 +736,9 @@ export class RenderMap {
 		const getDragBody = () => e_({ele: cvs.ownerDocument.body});
 
 		const saveTokens = MiscUtil.debounce(() => {
-			if (!enableTokens) return;
+			if (!enablePlacedLayer) return;
 			try {
-				sessionStorage.setItem(storageKey, JSON.stringify(mapData.placedTokens));
+				localStorage.setItem(storageKey, JSON.stringify(mapData.placedTokens));
 			} catch { /* quota */ }
 		}, 150);
 
@@ -671,11 +749,13 @@ export class RenderMap {
 			const disp = diam * zz;
 			const px = t.mapX * zz;
 			const py = t.mapY * zz;
+			const sz = typeof t.stackZ === "number" && Number.isFinite(t.stackZ) ? t.stackZ : 0;
 			wrap.css({
 				left: `${px - disp / 2}px`,
 				top: `${py - disp / 2}px`,
 				width: `${disp}px`,
 				height: `${disp}px`,
+				zIndex: String(2 + Math.round(sz)),
 			});
 			img.css({
 				transform: `rotate(${t.rotation || 0}deg)`,
@@ -840,14 +920,16 @@ export class RenderMap {
 		};
 
 		const refreshTokens = () => {
-			if (!enableTokens) return;
+			if (!enablePlacedLayer) return;
 			wrpTokens.empty();
 			const z = mapData.zoomLevel;
-			for (const t of mapData.placedTokens) {
+			const tokensSorted = [...mapData.placedTokens].sort((a, b) => a.stackZ - b.stackZ);
+			for (const t of tokensSorted) {
 				const diam = (t.baseDiameter || defaultTokenDiameter) * (t.scale || 1);
 				const disp = diam * z;
 				const px = t.mapX * z;
 				const py = t.mapY * z;
+				const sz = typeof t.stackZ === "number" && Number.isFinite(t.stackZ) ? t.stackZ : 0;
 
 				const wrap = ee`<div class="rd__dmv-token-wrap ve-absolute"></div>`;
 				wrap.css({
@@ -857,6 +939,7 @@ export class RenderMap {
 					height: `${disp}px`,
 					pointerEvents: "auto",
 					userSelect: "none",
+					zIndex: String(2 + Math.round(sz)),
 				});
 
 				const img = ee`<img alt="" class="rd__dmv-token" crossorigin="anonymous" src="${t.href}" draggable="false">`;
@@ -869,16 +952,17 @@ export class RenderMap {
 					objectFit: "contain",
 					pointerEvents: "auto",
 					cursor: "grab",
+					zIndex: "1",
 					transform: `rotate(${t.rotation || 0}deg)`,
 					transformOrigin: "center center",
 				});
 
-				const btnDel = ee`<button type="button" class="rd__dmv-token-del" aria-label="Remove token">×</button>`;
+				const btnDel = ee`<button type="button" class="rd__dmv-token-del" aria-label="${t.kind === "asset" ? "Remove asset" : "Remove token"}">×</button>`;
 				btnDel.css({
 					position: "absolute",
 					right: "2px",
 					top: "2px",
-					zIndex: "5",
+					zIndex: "10",
 					width: "13px",
 					height: "13px",
 					lineHeight: "11px",
@@ -890,8 +974,9 @@ export class RenderMap {
 					border: "1px solid rgba(0,0,0,0.18)",
 					background: "rgba(255,255,255,0.42)",
 					color: "rgba(0,0,0,0.45)",
-					opacity: "0.38",
-					transition: "opacity 0.12s ease, background 0.12s ease, color 0.12s ease",
+					opacity: "0",
+					pointerEvents: "none",
+					transition: "opacity 0.15s ease, background 0.12s ease, color 0.12s ease",
 					boxShadow: "0 0 0 1px rgba(255,255,255,0.25)",
 				});
 
@@ -900,7 +985,7 @@ export class RenderMap {
 					position: "absolute",
 					left: "2px",
 					top: "2px",
-					zIndex: "5",
+					zIndex: "10",
 					width: "13px",
 					height: "13px",
 					lineHeight: "11px",
@@ -913,8 +998,9 @@ export class RenderMap {
 					borderRadius: "50%",
 					border: "1px solid rgba(0,0,0,0.18)",
 					background: "rgba(255,255,255,0.42)",
-					opacity: "0.38",
-					transition: "opacity 0.12s ease, background 0.12s ease, color 0.12s ease",
+					opacity: "0",
+					pointerEvents: "none",
+					transition: "opacity 0.15s ease, background 0.12s ease, color 0.12s ease",
 					boxShadow: "0 0 0 1px rgba(255,255,255,0.25)",
 					boxSizing: "border-box",
 					userSelect: "none",
@@ -925,7 +1011,7 @@ export class RenderMap {
 					position: "absolute",
 					right: "2px",
 					bottom: "2px",
-					zIndex: "5",
+					zIndex: "10",
 					width: "13px",
 					height: "13px",
 					lineHeight: "11px",
@@ -938,26 +1024,67 @@ export class RenderMap {
 					borderRadius: "50%",
 					border: "1px solid rgba(0,0,0,0.18)",
 					background: "rgba(255,255,255,0.42)",
-					opacity: "0.38",
-					transition: "opacity 0.12s ease, background 0.12s ease, color 0.12s ease",
+					opacity: "0",
+					pointerEvents: "none",
+					transition: "opacity 0.15s ease, background 0.12s ease, color 0.12s ease",
 					boxShadow: "0 0 0 1px rgba(255,255,255,0.25)",
 					boxSizing: "border-box",
 					userSelect: "none",
 				});
+
+				const btnStackFwd = ee`<button type="button" class="rd__dmv-token-stack" aria-label="Bring forward" title="Bring forward (one layer up)">▲</button>`;
+				const btnStackBack = ee`<button type="button" class="rd__dmv-token-stack" aria-label="Send backward" title="Send backward (one layer down)">▼</button>`;
+				const stackBtnCss = {
+					position: "relative",
+					width: "13px",
+					height: "12px",
+					lineHeight: "10px",
+					padding: "0",
+					fontSize: "9px",
+					fontWeight: "600",
+					textAlign: "center",
+					cursor: "pointer",
+					borderRadius: "3px",
+					border: "1px solid rgba(0,0,0,0.18)",
+					background: "rgba(255,255,255,0.42)",
+					color: "rgba(0,0,0,0.55)",
+					boxShadow: "0 0 0 1px rgba(255,255,255,0.25)",
+					boxSizing: "border-box",
+					userSelect: "none",
+				};
+				btnStackFwd.css(stackBtnCss);
+				btnStackBack.css(stackBtnCss);
+
+				const wrpStack = ee`<div class="rd__dmv-token-stack-wrap ve-flex-col"></div>`;
+				wrpStack.css({
+					position: "absolute",
+					left: "2px",
+					bottom: "2px",
+					zIndex: "10",
+					gap: "1px",
+					opacity: "0",
+					pointerEvents: "none",
+					transition: "opacity 0.15s ease, background 0.12s ease, color 0.12s ease",
+				});
+				wrpStack.appends(btnStackFwd);
+				wrpStack.appends(btnStackBack);
 
 				const tokenEls = {wrap, img};
 				wrap.appends(img);
 				wrap.appends(btnDel);
 				wrap.appends(hResize);
 				wrap.appends(hRotate);
+				wrap.appends(wrpStack);
 
 				let tokenChromeHover = false;
 				let tokenChromeFocus = false;
 				const setTokenChromeOpaque = on => {
-					const o = on ? "1" : "0.38";
-					btnDel.css({opacity: o});
-					hResize.css({opacity: o});
-					hRotate.css({opacity: o});
+					const o = on ? "1" : "0";
+					const pe = on ? "auto" : "none";
+					btnDel.css({opacity: o, pointerEvents: pe});
+					hResize.css({opacity: o, pointerEvents: pe});
+					hRotate.css({opacity: o, pointerEvents: pe});
+					wrpStack.css({opacity: o, pointerEvents: pe});
 				};
 				const refreshTokenChrome = () => setTokenChromeOpaque(tokenChromeHover || tokenChromeFocus);
 				wrap.onn("mouseenter", () => {
@@ -977,8 +1104,28 @@ export class RenderMap {
 					refreshTokenChrome();
 				});
 
+				btnStackFwd.onn("mousedown", evt => {
+					if (evt.button !== 0) return;
+					evt.stopPropagation();
+				});
+				btnStackFwd.onn("click", evt => {
+					evt.preventDefault();
+					evt.stopPropagation();
+					dmvSwapTokenStackOrder(t, "forward");
+				});
+				btnStackBack.onn("mousedown", evt => {
+					if (evt.button !== 0) return;
+					evt.stopPropagation();
+				});
+				btnStackBack.onn("click", evt => {
+					evt.preventDefault();
+					evt.stopPropagation();
+					dmvSwapTokenStackOrder(t, "backward");
+				});
+
 				img.onn("error", () => {
-					JqueryUtil.doToast({type: "warning", content: `Token image failed to load (${t.label || "creature"}).`});
+					const kindLabel = t.kind === "asset" ? "asset" : "creature";
+					JqueryUtil.doToast({type: "warning", content: `${kindLabel === "asset" ? "Asset" : "Token"} image failed to load (${t.label || kindLabel}).`});
 					img.attr("src", "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
 				});
 
@@ -990,9 +1137,10 @@ export class RenderMap {
 					evt.preventDefault();
 					evt.stopPropagation();
 					const label = (t.label || "").trim();
-					const msg = label
-						? `Remove token "${label}" from this map?`
-						: `Remove this token from the map?`;
+					const isAsset = t.kind === "asset";
+					const msg = isAsset
+						? (label ? `Remove asset "${label}" from this map?` : `Remove this asset from the map?`)
+						: (label ? `Remove token "${label}" from this map?` : `Remove this token from the map?`);
 					const dlgWin = evt.view ?? btnDel.ownerDocument?.defaultView ?? globalThis;
 					if (!dlgWin.confirm(msg)) return;
 					const ix = mapData.placedTokens.indexOf(t);
@@ -1118,6 +1266,19 @@ export class RenderMap {
 
 				wrpTokens.appends(wrap);
 			}
+		};
+
+		const dmvSwapTokenStackOrder = (t, direction) => {
+			const sorted = [...mapData.placedTokens].sort((a, b) => a.stackZ - b.stackZ);
+			const i = sorted.indexOf(t);
+			if (i < 0) return;
+			const j = direction === "forward" ? i + 1 : i - 1;
+			if (j < 0 || j >= sorted.length) return;
+			const tmp = sorted[i].stackZ;
+			sorted[i].stackZ = sorted[j].stackZ;
+			sorted[j].stackZ = tmp;
+			refreshTokens();
+			saveTokens();
 		};
 
 		const getEventPoint = evt => {
@@ -1373,6 +1534,7 @@ export class RenderMap {
 						scale: 1,
 						rotation: 0,
 						baseDiameter: defaultTokenDiameter,
+						stackZ: RenderMap._nextDmvPlacedTokenStackZ(mapData.placedTokens),
 					});
 					doClose();
 					refreshTokens();
@@ -1502,6 +1664,168 @@ export class RenderMap {
 			await pDoSearch();
 		};
 
+		const pOpenAssetLibraryModal = async clickEvt => {
+			const modalHostWindow =
+				clickEvt?.currentTarget?.ownerDocument?.defaultView
+				?? clickEvt?.view
+				?? globalThis;
+			const appWindow = RenderMap._getDmvHostAppWindowForSearch(modalHostWindow);
+			const docUi = modalHostWindow.document;
+			const Rget = appWindow.Renderer?.get?.() ?? globalThis.Renderer?.get?.();
+			if (!Rget?.getMediaUrl) {
+				JqueryUtil.doToast({type: "warning", content: "Renderer unavailable to load assets."});
+				return;
+			}
+
+			const assets = await RenderMap._pLoadDmvAssetManifest(appWindow);
+
+			const {eleModalInner, doClose} = UiUtil.getShowModal({
+				title: "Adicionar asset ao mapa",
+				isMinHeight0: true,
+				window: modalHostWindow,
+			});
+
+			const iptSearch = ee`<input class="ve-form-control ve-ui-search__ipt-search search ve-mb-2" autocomplete="off" placeholder="Filtrar… (≥2 letras se tens muitos assets)">`;
+			const wrpGrid = ee`<div class="ve-flex ve-flex-wrap ve-overflow-y-auto ve-max-h-mobile-500" style="min-height:12rem;gap:0.35rem;"></div>`;
+			iptSearch.appendTo(eleModalInner);
+			wrpGrid.appendTo(eleModalInner);
+
+			const ASSET_LIB_LARGE = 500;
+			const ASSET_FILTER_MIN = 2;
+			const ASSET_GRID_MAX = 400;
+
+			const categoryFromAssetRel = rel => {
+				const norm = String(rel || "").replace(/\\/g, "/");
+				const low = norm.toLowerCase();
+				const needle = "hdq/fa-assets/";
+				const idx = low.indexOf(needle);
+				if (idx < 0) return "_outro";
+				const rest = norm.slice(idx + needle.length);
+				const seg = rest.split("/").filter(Boolean)[0];
+				return seg || "_outro";
+			};
+
+			const appendAssetThumbCell = a => {
+				const cell = docUi.createElement("button");
+				cell.type = "button";
+				cell.className = "ve-btn ve-btn-default ve-flex-col ve-align-items-center ve-p-1";
+				cell.style.cssText = "width:5.5rem;min-height:5.5rem;";
+				const thumb = docUi.createElement("img");
+				thumb.alt = "";
+				thumb.loading = "lazy";
+				thumb.draggable = false;
+				thumb.crossOrigin = "anonymous";
+				thumb.style.cssText = "width:4rem;height:4rem;object-fit:contain;display:block;";
+				thumb.src = Rget.getMediaUrl("img", a.rel);
+				const cap = docUi.createElement("span");
+				cap.className = "ve-small ve-text-left";
+				cap.style.cssText = "max-width:5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+				cap.textContent = a.name || a.rel;
+				cap.title = a.name || a.rel;
+				cell.append(thumb, cap);
+				cell.addEventListener("click", () => {
+					const href = Rget.getMediaUrl("img", a.rel);
+					mapData.placedTokens.push({
+						id: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+						kind: "asset",
+						assetId: a.id,
+						mapX: mapData.width / 2,
+						mapY: mapData.height / 2,
+						href,
+						label: a.name || a.rel,
+						scale: 1,
+						rotation: 0,
+						baseDiameter: defaultTokenDiameter,
+						stackZ: RenderMap._nextDmvPlacedTokenStackZ(mapData.placedTokens),
+					});
+					doClose();
+					refreshTokens();
+					saveTokens();
+				});
+				wrpGrid.appendChild(cell);
+			};
+
+			const renderGridCore = () => {
+				const q = String(iptSearch.val() || "").trim().toLowerCase();
+				wrpGrid.empty();
+				if (!assets.length) {
+					const p = docUi.createElement("p");
+					p.className = "ve-muted ve-small";
+					p.textContent = "Sem entradas no manifesto. Se já tens imagens em img/hdq/fa-assets/, na raiz do projeto corre node tools/generate-dmv-asset-manifest.mjs e recarrega a página (ou RenderMap.clearDmvAssetManifestCache() na consola). Vê img/hdq/fa-assets/README.txt";
+					wrpGrid.appendChild(p);
+					return;
+				}
+				if (assets.length > ASSET_LIB_LARGE && q.length < ASSET_FILTER_MIN) {
+					const p = docUi.createElement("p");
+					p.className = "ve-muted ve-small";
+					p.textContent = `Biblioteca com ${assets.length} assets (manifesto grande). Escreve pelo menos ${ASSET_FILTER_MIN} caracteres no filtro para listar miniaturas (máx. ${ASSET_GRID_MAX} por pesquisa).`;
+					wrpGrid.appendChild(p);
+					return;
+				}
+				const filtered = !q
+					? assets
+					: assets.filter(a => {
+						const n = String(a.name || "").toLowerCase();
+						const r = String(a.rel || "").toLowerCase();
+						return n.includes(q) || r.includes(q);
+					});
+				if (!filtered.length) {
+					const p = docUi.createElement("p");
+					p.className = "ve-muted";
+					p.textContent = "Nenhum resultado.";
+					wrpGrid.appendChild(p);
+					return;
+				}
+				const total = filtered.length;
+				/** @type {Map<string, Array>} */
+				const buckets = new Map();
+				for (const a of filtered) {
+					const cat = categoryFromAssetRel(a.rel);
+					if (!buckets.has(cat)) buckets.set(cat, []);
+					buckets.get(cat).push(a);
+				}
+				const catsSorted = [...buckets.keys()].sort((a, b) => a.localeCompare(b));
+				const numCats = catsSorted.length;
+				let totalShown = 0;
+
+				if (numCats <= 1) {
+					const slice = filtered.slice(0, ASSET_GRID_MAX);
+					for (const a of slice) appendAssetThumbCell(a);
+					totalShown = slice.length;
+				} else {
+					const perCat = Math.max(6, Math.floor(ASSET_GRID_MAX / numCats));
+					for (const cat of catsSorted) {
+						const arr = buckets.get(cat) || [];
+						const take = arr.slice(0, Math.min(perCat, arr.length));
+						if (!take.length) continue;
+						const h = docUi.createElement("div");
+						h.className = "ve-w-100 ve-small";
+						h.style.cssText = "flex-basis:100%;margin-top:0.45rem;font-weight:600;opacity:0.88;padding:0.15rem 0;border-bottom:1px solid rgba(0,0,0,0.1);";
+						const extra = arr.length > take.length ? ` — ${take.length} de ${arr.length}` : ` — ${arr.length}`;
+						h.textContent = `${cat}${extra}`;
+						wrpGrid.appendChild(h);
+						for (const a of take) appendAssetThumbCell(a);
+						totalShown += take.length;
+					}
+				}
+
+				if (total > totalShown) {
+					const more = docUi.createElement("p");
+					more.className = "ve-small ve-muted ve-w-100";
+					more.style.cssText = "flex-basis:100%;";
+					const perCatCap = numCats > 1 ? Math.max(6, Math.floor(ASSET_GRID_MAX / numCats)) : ASSET_GRID_MAX;
+					const catNote = numCats > 1 ? ` (${numCats} categorias, até ${perCatCap} miniaturas por categoria)` : "";
+					more.textContent = `Mostrando ${totalShown} de ${total} resultados${catNote} — afinar a pesquisa para ver mais.`;
+					wrpGrid.appendChild(more);
+				}
+			};
+
+			const renderGridDebounced = MiscUtil.debounce(renderGridCore, 120);
+			iptSearch.onn("input", renderGridDebounced);
+			iptSearch.focuse();
+			renderGridCore();
+		};
+
 		const btnZoomMinus = ee`<button class="ve-btn ve-btn-xs ve-btn-default"><span class="glyphicon glyphicon-zoom-out"></span> Zoom Out</button>`
 			.onn("click", () => zoomChange("out"));
 
@@ -1530,7 +1854,9 @@ export class RenderMap {
 						<li>Right-click and drag to pan.</li>
 						<li><kbd>CTRL</kbd>-scroll to zoom.</li>
 						<li><b>Zoom to Fit</b> shows the entire map; <b>Zoom to Fill</b> uses the full viewport (may crop).</li>
-						${enableTokens ? "<li><b>Add token</b> picks a creature from the bestiary; if a top-down file exists under <code>img/hdq/fa-tokens/</code> or <code>img/hdq/free-tokens/</code> (Forgotten Adventures overrides FREE on the same creature), you are prompted to use it or the default bestiary token. List rows show <b>TD</b> when a top-down path is mapped. Drag the token image to move; top-left handle to resize; bottom-right <b>↻</b> (or <kbd>SHIFT</kbd>+scroll on the image) to rotate; <kbd>ALT</kbd>+scroll on a token to resize; top-right <b>×</b> removes one (confirm); <b>Clear tokens</b> removes all.</li>" : ""}
+						${enableCreatureTokens ? "<li><b>Add token</b> picks a creature from the bestiary; if a top-down file exists under <code>img/hdq/fa-tokens/</code> or <code>img/hdq/free-tokens/</code> (Forgotten Adventures overrides FREE on the same creature), you are prompted to use it or the default bestiary token. List rows show <b>TD</b> when a top-down path is mapped. <b>Clear tokens</b> removes creature tokens only (keeps assets).</li>" : ""}
+						${enableAssetLib ? "<li><b>Add asset</b> uses <code>data/hdq/dmv-asset-manifest.json</code> (run <code>node tools/generate-dmv-asset-manifest.mjs</code> after copying into <code>img/hdq/fa-assets/</code>; reload the page to refresh the cached manifest). Large libraries: type at least <b>2</b> characters to show thumbnails (max 400 matches). Same drag, resize, rotate, and delete as tokens. <b>Clear assets</b> removes placed assets only.</li>" : ""}
+						${enablePlacedLayer ? "<li>Drag the image to move; top-left handle to resize; bottom-right <b>↻</b> (or <kbd>SHIFT</kbd>+scroll on the image) to rotate; <kbd>ALT</kbd>+scroll to resize; top-right <b>×</b> removes one (confirm). Bottom-left <b>▲</b><b>▼</b> (on hover) change stacking order among tokens and assets.</li>" : ""}
 						${helpExtraHtml}
 					</ul>
 				`);
@@ -1566,15 +1892,29 @@ export class RenderMap {
 				}
 			});
 
-		const btnAddToken = enableTokens
+		const btnAddToken = enableCreatureTokens
 			? ee`<button type="button" class="ve-btn ve-btn-xs ve-btn-default ve-mr-2" title="Add creature from bestiary"><span class="glyphicon glyphicon-plus"></span> Add Token</button>`
 				.onn("click", evt => { pOpenBestiaryTokenModal(evt); })
 			: null;
 
-		const btnClearTokens = enableTokens
-			? ee`<button type="button" class="ve-btn ve-btn-xs ve-btn-default ve-mr-2" title="Remove all tokens from this map"><span class="glyphicon glyphicon-trash"></span> Clear Tokens</button>`
+		const btnClearTokens = enableCreatureTokens
+			? ee`<button type="button" class="ve-btn ve-btn-xs ve-btn-default ve-mr-2" title="Remove all creature tokens from this map (keeps assets)"><span class="glyphicon glyphicon-trash"></span> Clear Tokens</button>`
 				.onn("click", () => {
-					mapData.placedTokens = [];
+					mapData.placedTokens = mapData.placedTokens.filter(t => t.kind === "asset");
+					refreshTokens();
+					saveTokens();
+				})
+			: null;
+
+		const btnAddAsset = enableAssetLib
+			? ee`<button type="button" class="ve-btn ve-btn-xs ve-btn-default ve-mr-2" title="Add scenery asset from library"><span class="glyphicon glyphicon-picture"></span> Add Asset</button>`
+				.onn("click", evt => { pOpenAssetLibraryModal(evt); })
+			: null;
+
+		const btnClearAssets = enableAssetLib
+			? ee`<button type="button" class="ve-btn ve-btn-xs ve-btn-default ve-mr-2" title="Remove all placed assets from this map (keeps creature tokens)"><span class="glyphicon glyphicon-trash"></span> Clear Assets</button>`
+				.onn("click", () => {
+					mapData.placedTokens = mapData.placedTokens.filter(t => t.kind !== "asset");
 					refreshTokens();
 					saveTokens();
 				})
@@ -1588,6 +1928,8 @@ export class RenderMap {
 		);
 		if (btnAddToken) toolbarRow.appends(btnAddToken);
 		if (btnClearTokens) toolbarRow.appends(btnClearTokens);
+		if (btnAddAsset) toolbarRow.appends(btnAddAsset);
+		if (btnClearAssets) toolbarRow.appends(btnClearAssets);
 		toolbarRow.appends(btnHelp);
 
 		const out = ee`<div class="ve-flex-col ve-w-100 ve-h-100">

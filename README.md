@@ -71,6 +71,18 @@ npm run lint
 
 URLs `file:///` em `data/adventure/adventure-hotdq.json` ou em `js/render-map.js` **não funcionam** se o site for servido por `http://localhost` — o browser bloqueia mistura de origens. Usa ficheiros sob `img/adventure/HotDQ/` e `href` do tipo `internal`, ou mantém tudo em `file://` (menos prático).
 
+## DMV — biblioteca de assets (manifesto)
+
+Para o **Dynamic Map Viewer** listar miniaturas em **Add Asset**, as imagens têm de estar sob `img/hdq/fa-assets/` e o manifesto JSON tem de estar atualizado.
+
+Na **raiz do projeto**, depois de copiares os ficheiros (ex. a partir do pack FA_Assets):
+
+```bash
+node tools/generate-dmv-asset-manifest.mjs
+```
+
+Gera/atualiza `data/hdq/dmv-asset-manifest.json`. Detalhes de cópia de pastas e notas de uso: `img/hdq/fa-assets/README.txt`.
+
 ## Licença
 
 MIT — ver `package.json` e histórico upstream.
