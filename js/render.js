@@ -577,6 +577,32 @@ globalThis.Renderer = function () {
 		return pid === "219" || pid === 219 || String(pid) === "219";
 	};
 
+	this._renderImage_isHotdqRaiderCampPlayerMap = function (entry) {
+		if (entry?.type !== "image") return false;
+		const path = entry?.href?.type === "internal" ? entry.href.path : "";
+		const isRaiderCampPlayerAsset = path.includes("013-map-2-1-raider-camp-player")
+			|| path.includes("raider-camp-v2");
+		if (!isRaiderCampPlayerAsset) return false;
+		const pid = entry?.mapParent?.id;
+		return pid === "276" || pid === 276 || String(pid) === "276";
+	};
+
+	this._renderImage_isHotdqPlayerViewerMap = function (entry) {
+		return this._renderImage_isHotdqGreenestPlayerMap(entry)
+			|| this._renderImage_isHotdqRaiderCampPlayerMap(entry);
+	};
+
+	this._renderImage_isJttrcKiannasFarmhouseMap = function (entry) {
+		if (entry?.type !== "image") return false;
+		const path = entry?.href?.type === "internal" ? entry.href.path : "";
+		return path.includes("kiannas-farmhouse-v2");
+	};
+
+	this._renderImage_isCustomDmvMap = function (entry) {
+		return this._renderImage_isHotdqPlayerViewerMap(entry)
+			|| this._renderImage_isJttrcKiannasFarmhouseMap(entry);
+	};
+
 	this._renderImage = function (entry, textStack, meta, options) {
 		if (entry.title) this._handleTrackTitles(entry.title, {isImage: true});
 
@@ -600,19 +626,22 @@ globalThis.Renderer = function () {
 			</div>
 		</div>`;
 
+		const isCustomDmvMap = this._renderImage_isCustomDmvMap(entry) && !globalThis.IS_VTT;
 		const isHotdqGreenestPlayerViewer = this._renderImage_isHotdqGreenestPlayerMap(entry) && !globalThis.IS_VTT;
+		const isHotdqRaiderCampPlayerViewer = this._renderImage_isHotdqRaiderCampPlayerMap(entry) && !globalThis.IS_VTT;
+		const isJttrcKiannasFarmhouseViewer = this._renderImage_isJttrcKiannasFarmhouseMap(entry) && !globalThis.IS_VTT;
 
-		if (!this._renderImage_isComicStyling(entry) && (entry.title || entry.credit || entry.mapRegions || isHotdqGreenestPlayerViewer)) {
-			const ptAdventureBookMeta = (entry.mapRegions || isHotdqGreenestPlayerViewer) && meta.adventureBookPage && meta.adventureBookSource && meta.adventureBookHash
+		if (!this._renderImage_isComicStyling(entry) && (entry.title || entry.credit || entry.mapRegions || isCustomDmvMap)) {
+			const ptAdventureBookMeta = (entry.mapRegions || isCustomDmvMap) && meta.adventureBookPage && meta.adventureBookSource && meta.adventureBookHash
 				? `data-rd-adventure-book-map-page="${meta.adventureBookPage.qq()}" data-rd-adventure-book-map-source="${meta.adventureBookSource.qq()}" data-rd-adventure-book-map-hash="${meta.adventureBookHash.qq()}"`
 				: "";
 
 			textStack[0] += `<div class="ve-rd__image-title">`;
 
-			const isDynamicViewer = entry.mapRegions && !globalThis.IS_VTT;
+			const isDynamicViewer = entry.mapRegions && !globalThis.IS_VTT && !isJttrcKiannasFarmhouseViewer;
 
-			if (entry.title && !isDynamicViewer) {
-				const ptTitleInnerClass = isHotdqGreenestPlayerViewer
+			if (entry.title && !isDynamicViewer && !isJttrcKiannasFarmhouseViewer) {
+				const ptTitleInnerClass = isCustomDmvMap
 					? `ve-rd__image-title-inner ve-rd__image-title-inner--before-viewer-btn`
 					: `ve-rd__image-title-inner`;
 				textStack[0] += `<div class="${ptTitleInnerClass}">${this.render(entry.title)}</div>`;
@@ -624,6 +653,14 @@ globalThis.Renderer = function () {
 
 			if (isHotdqGreenestPlayerViewer) {
 				textStack[0] += `<button class="ve-btn ve-btn-xs ve-btn-default ve-rd__image-btn-viewer" onclick="RenderMap.pShowHotdqGreenestPlayerViewer(event, this)" data-rd-packed-map="${this._renderImage_getHotdqGreenestPlayerMapData(entry)}" ${ptAdventureBookMeta} title="Open Dynamic Viewer (opens in a new window for projector; SHIFT keeps viewer on this page)"><span class="glyphicon glyphicon-picture"></span> ${Renderer.stripTags(entry.title) || "Dynamic Viewer"}</button>`;
+			}
+
+			if (isHotdqRaiderCampPlayerViewer) {
+				textStack[0] += `<button class="ve-btn ve-btn-xs ve-btn-default ve-rd__image-btn-viewer" onclick="RenderMap.pShowHotdqRaiderCampPlayerViewer(event, this)" data-rd-packed-map="${this._renderImage_getHotdqRaiderCampPlayerMapData(entry)}" ${ptAdventureBookMeta} title="Open Dynamic Viewer (opens in a new window for projector; SHIFT keeps viewer on this page)"><span class="glyphicon glyphicon-picture"></span> ${Renderer.stripTags(entry.title) || "Dynamic Viewer"}</button>`;
+			}
+
+			if (isJttrcKiannasFarmhouseViewer) {
+				textStack[0] += `<button class="ve-btn ve-btn-xs ve-btn-default ve-rd__image-btn-viewer" onclick="RenderMap.pShowJttrcKiannasFarmhouseViewer(event, this)" data-rd-packed-map="${this._renderImage_getJttrcKiannasFarmhouseMapData(entry)}" ${ptAdventureBookMeta} title="Open Dynamic Viewer (opens in a new window for projector; SHIFT keeps viewer on this page)"><span class="glyphicon glyphicon-picture"></span> ${Renderer.stripTags(entry.title) || "Dynamic Viewer"}</button>`;
 			}
 
 			if (entry.credit) textStack[0] += `<div class="ve-rd__image-credit ve-muted"><span class="glyphicon glyphicon-pencil" title="Art Credit"></span> ${this.render(entry.credit)}</div>`;
@@ -750,6 +787,14 @@ globalThis.Renderer = function () {
 
 	this._renderImage_getHotdqGreenestPlayerMapData = function (entry) {
 		return JSON.stringify(RenderMap.getHotdqGreenestPlayerMapData(entry, this._renderImage_getUrl(entry))).escapeQuotes();
+	};
+
+	this._renderImage_getHotdqRaiderCampPlayerMapData = function (entry) {
+		return JSON.stringify(RenderMap.getHotdqRaiderCampPlayerMapData(entry, this._renderImage_getUrl(entry))).escapeQuotes();
+	};
+
+	this._renderImage_getJttrcKiannasFarmhouseMapData = function (entry) {
+		return JSON.stringify(RenderMap.getJttrcKiannasFarmhouseMapData(entry, this._renderImage_getUrl(entry))).escapeQuotes();
 	};
 
 	this.getMapRegionData = function (entry) {

@@ -262,21 +262,70 @@ Renderer
 				}
 			}
 
-			// Thicker scrollbars for viewer
+			// DMV map scroller — thin overlay-style bars (pan still works; projector hides them)
 			&scroller-viewer {
-				scrollbar-width: auto;
+				scrollbar-width: thin;
+				scrollbar-color: rgb(0 0 0 / 22%) transparent;
 
 				&--bg-light {
 					background: vars.$rgb-bg;
+					scrollbar-color: rgb(0 0 0 / 22%) transparent;
 				}
 
 				&--bg-dark {
 					background: vars.$rgb-off-black;
+					scrollbar-color: rgb(255 255 255 / 28%) transparent;
 				}
 
 				&::-webkit-scrollbar {
-					width: 15px;
-					height: 15px;
+					width: 8px;
+					height: 8px;
+				}
+
+				&::-webkit-scrollbar-track {
+					background: transparent;
+				}
+
+				&::-webkit-scrollbar-thumb {
+					background: rgb(0 0 0 / 18%);
+					border-radius: 4px;
+					border: 2px solid transparent;
+					background-clip: padding-box;
+				}
+
+				&:hover::-webkit-scrollbar-thumb {
+					background: rgb(0 0 0 / 32%);
+					background-clip: padding-box;
+				}
+
+				&--bg-dark::-webkit-scrollbar-thumb {
+					background: rgb(255 255 255 / 22%);
+					background-clip: padding-box;
+				}
+
+				&--bg-dark:hover::-webkit-scrollbar-thumb {
+					background: rgb(255 255 255 / 38%);
+					background-clip: padding-box;
+				}
+
+				// Player / projector mirror — no visible scrollbars (wheel, pan, keyboard still work)
+				&--projector {
+					scrollbar-width: none;
+
+					&::-webkit-scrollbar {
+						width: 0;
+						height: 0;
+					}
+				}
+
+				// Optional: add to master DMV if you prefer zero chrome (class not set by default)
+				&--scrollbar-hidden {
+					scrollbar-width: none;
+
+					&::-webkit-scrollbar {
+						width: 0;
+						height: 0;
+					}
 				}
 			}
 
@@ -839,4 +888,95 @@ Renderer
 		}
 	}
 	// endregion
+
+	// DMV — selected token/asset (copy/paste)
+	.rd__dmv-token-wrap--selected {
+		outline: 2px solid #337ab7;
+		outline-offset: 2px;
+	}
+
+	// DMV — visible on master only (hidden from projector / players)
+	.rd__dmv-token-wrap--projector-hidden {
+		opacity: 0.62;
+
+		&.rd__dmv-token-wrap--selected {
+			outline: 2px solid #337ab7;
+			box-shadow: 0 0 0 2px rgb(51 122 183 / 35%);
+		}
+
+		&:not(.rd__dmv-token-wrap--selected) {
+			outline: 2px dashed rgb(51 122 183 / 55%);
+			outline-offset: 2px;
+		}
+	}
+
+	.rd__dmv-token-projvis .glyphicon {
+		font-size: 8px;
+		line-height: 1;
+		vertical-align: middle;
+	}
+
+	// DMV — creature portrait on token hover (master + projector)
+	.rd__dmv-portrait-panel {
+		position: fixed;
+		right: 12px;
+		bottom: 12px;
+		z-index: 200;
+		max-width: min(280px, 32vw);
+		padding: 0.45rem 0.5rem 0.5rem;
+		border-radius: 6px;
+		border: 1px solid rgb(0 0 0 / 18%);
+		background: rgb(255 255 255 / 94%);
+		box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
+		pointer-events: none;
+
+		&__title {
+			font-size: 0.8rem;
+			font-weight: 600;
+			line-height: 1.25;
+			margin-bottom: 0.35rem;
+			color: vars.$rgb-font;
+			text-align: center;
+		}
+
+		&__img-wrap {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			max-height: min(42vh, 360px);
+			overflow: hidden;
+			border-radius: 4px;
+			background: rgb(0 0 0 / 6%);
+		}
+
+		&__img {
+			display: block;
+			max-width: 100%;
+			max-height: min(42vh, 360px);
+			width: auto;
+			height: auto;
+			object-fit: contain;
+		}
+
+		&--projector {
+			max-width: min(420px, 38vw);
+			padding: 0.55rem 0.6rem 0.6rem;
+			background: rgb(12 12 12 / 88%);
+			border-color: rgb(255 255 255 / 14%);
+			box-shadow: 0 6px 28px rgb(0 0 0 / 55%);
+
+			.rd__dmv-portrait-panel__title {
+				color: #f0f0f0;
+			}
+
+			.rd__dmv-portrait-panel__img-wrap {
+				max-height: min(52vh, 480px);
+				background: rgb(0 0 0 / 35%);
+			}
+
+			.rd__dmv-portrait-panel__img {
+				max-height: min(52vh, 480px);
+			}
+		}
+	}
 }

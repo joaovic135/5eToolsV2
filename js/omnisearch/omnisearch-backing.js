@@ -146,7 +146,7 @@ export class OmnisearchBacking {
 
 	/* -------------------------------------------- */
 
-	static async pGetFilteredResults (results, {isApplySrdFilter = false, isApplyPartneredFilter = false, searchTerm = null} = {}) {
+	static async pGetFilteredResults (results, {isApplySrdFilter = false, isApplyPartneredFilter = false, searchTerm = null, preferMm2014Creatures = false} = {}) {
 		if (searchTerm) searchTerm = searchTerm.toLowerCase();
 
 		if (isApplySrdFilter && OmnisearchState.isSrdOnly) {
@@ -172,7 +172,11 @@ export class OmnisearchBacking {
 		}
 
 		if (!OmnisearchState.isShowLegacy) {
-			results = results.filter(res => !res.doc.s || !SourceUtil.isLegacySourceWotc(res.doc.s));
+			results = results.filter(res => {
+				if (!res.doc.s || !SourceUtil.isLegacySourceWotc(res.doc.s)) return true;
+				if (preferMm2014Creatures && res.doc.c === Parser.CAT_ID_CREATURE && res.doc.s === Parser.SRC_MM) return true;
+				return false;
+			});
 		}
 
 		if (!OmnisearchState.isShowBlocklisted && ExcludeUtil.getList().length) {
@@ -197,7 +201,7 @@ export class OmnisearchBacking {
 
 		const styleHint = VetoolsConfig.get("styleSwitcher", "style");
 		results
-			.forEach(result => this._mutResultScores({result, styleHint, searchTerm}));
+			.forEach(result => this._mutResultScores({result, styleHint, searchTerm, preferMm2014Creatures}));
 		results.sort((a, b) => SortUtil.ascSort(b.score, a.score));
 
 		return results;
@@ -361,7 +365,7 @@ export class OmnisearchBacking {
 		Parser.CAT_ID_BOOK,
 	]);
 
-	static _mutResultScores ({result, styleHint, searchTerm = null}) {
+	static _mutResultScores ({result, styleHint, searchTerm = null, preferMm2014Creatures = false}) {
 		// Hoist adventure/books if their exact source abbreviation is given
 		if (searchTerm && result.doc.s && this._CATEGORIES_CORPORA.has(result.doc.c)) {
 			if (
@@ -372,9 +376,15 @@ export class OmnisearchBacking {
 			}
 		}
 
-		if ((styleHint !== SITE_STYLE__CLASSIC ? this._SOURCES_CORE_MODERN : this._SOURCES_CORE_LEGACY).has(result.doc.s)) result.score *= 1.1;
+		const isCreature = result.doc.c === Parser.CAT_ID_CREATURE;
+		if (preferMm2014Creatures && isCreature) {
+			if (result.doc.s === Parser.SRC_MM) result.score *= 1.12;
+			else if (result.doc.s === Parser.SRC_XMM) result.score *= 0.88;
+		} else {
+			if ((styleHint !== SITE_STYLE__CLASSIC ? this._SOURCES_CORE_MODERN : this._SOURCES_CORE_LEGACY).has(result.doc.s)) result.score *= 1.1;
+			if (styleHint !== SITE_STYLE__CLASSIC && SourceUtil.isLegacySourceWotc(result.doc.s)) result.score *= 0.75;
+		}
 		if (SourceUtil.isNonstandardSource(result.doc.s)) result.score *= 0.66;
-		if (styleHint !== SITE_STYLE__CLASSIC && SourceUtil.isLegacySourceWotc(result.doc.s)) result.score *= 0.75;
 
 		if (this._CATEGORIES_DEPRIORITIZED.has(result.doc.c)) result.score *= 0.5;
 		if (this._CATEGORIES_DEPRIORITIZED_MORE.has(result.doc.c)) result.score *= 0.38;

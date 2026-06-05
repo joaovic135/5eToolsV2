@@ -1,0 +1,85 @@
+{
+	"name": "@5etools/desktop",
+	"version": "0.1.0",
+	"description": "5eToolsV3 — Electron com mirror legacy (adventure + DMV)",
+	"author": "local",
+	"private": true,
+	"type": "module",
+	"main": "out/main/index.js",
+	"scripts": {
+		"dev": "electron-vite dev",
+		"build": "electron-vite build",
+		"preview": "electron-vite preview",
+		"pack:mirror": "node scripts/pack-mirror.mjs",
+		"dist": "npm run pack:mirror && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+		"index:data": "cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/index-data.mjs",
+		"rebuild:native": "electron-rebuild -f -w better-sqlite3"
+	},
+	"dependencies": {
+		"better-sqlite3": "^11.8.1",
+		"finalhandler": "^2.1.1",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"react-router-dom": "^7.6.2",
+		"serve-static": "^2.2.1"
+	},
+	"build": {
+		"appId": "com.local.fivetoolsv3",
+		"productName": "5eToolsV3",
+		"npmRebuild": false,
+		"directories": {
+			"output": "release"
+		},
+		"files": [
+			"out/**/*",
+			"package.json",
+			"node_modules/**/*"
+		],
+		"asar": true,
+		"asarUnpack": [
+			"**/*.node"
+		],
+		"extraResources": [
+			{
+				"from": "resources-staging/5etools-mirror",
+				"to": "5etools-mirror"
+			}
+		],
+		"win": {
+			"signAndEditExecutable": false,
+			"target": [
+				"nsis",
+				"portable"
+			]
+		},
+		"mac": {
+			"target": [
+				"dmg"
+			],
+			"category": "public.app-category.games"
+		},
+		"linux": {
+			"target": [
+				"AppImage"
+			]
+		}
+	},
+	"devDependencies": {
+		"@electron/rebuild": "^4.0.2",
+		"@tailwindcss/vite": "^4.1.7",
+		"@types/better-sqlite3": "^7.6.12",
+		"@types/react": "^18.3.18",
+		"@types/react-dom": "^18.3.5",
+		"@types/serve-static": "^2.2.0",
+		"@vitejs/plugin-react": "^4.3.4",
+		"autoprefixer": "^10.4.21",
+		"cross-env": "^7.0.3",
+		"electron": "^34.0.0",
+		"electron-builder": "^26.8.1",
+		"electron-vite": "^2.3.0",
+		"postcss": "^8.5.3",
+		"tailwindcss": "^4.1.7",
+		"typescript": "^5.7.3",
+		"vite": "^5.4.14"
+	}
+}

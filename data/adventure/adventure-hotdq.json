@@ -1084,7 +1084,7 @@
 							"type": "insetReadaloud",
 							"id": "062",
 							"entries": [
-								"For the past several days, you have been traveling a road that winds lazily across the rolling grasslands of the Greenfields. Sundown is approaching when you top a rise and see the town of Greenest just a few short miles away. But instead of the pleasant, welcoming town you expected, you see columns of black smoke rising from burning buildings, running figures that are little more than dots at this distance, and a dark, winged shape wheeling low over the keep that rises above the center of the town. Greenest is being attacked by a dragon!"
+								"Nos últimos dias, vocês têm seguido uma estrada que serpenteia preguiçosamente pelas colinas onduladas dos Campos Verdes. O sol poente se aproxima quando vocês chegam ao topo de uma elevação e avistam a cidade de Greenest a poucas milhas de distância. Mas, em vez da cidade agradável e acolhedora que esperavam, veem colunas de fumaça negra subindo de edifícios em chamas, figuras correndo que, à distância, são pouco mais que pontos, e uma forma escura e alada que gira baixo sobre o castelo que se ergue no centro da cidade. Greenest está sendo atacada por um dragão!"
 							]
 						},
 						"The sequence of events that follow is up to you and the characters. You can present them with as many of the encounters as you want, in any order. The only exception is \"{@area Seek the Keep|070|x},\" which should be the first encounter after characters enter Greenest."
@@ -1485,7 +1485,7 @@
 									"type": "insetReadaloud",
 									"id": "071",
 									"entries": [
-										"Without warning, five humans dash out from between two buildings on your left. A limping man and three young children race across the street into more shadows, and a woman carrying a round shield and a broken spear turns and faces back in the direction from which they came. Seven kobolds stream out of the alley on the family's heels and fan out around the woman, who looks determined to delay the creatures for as long as possible."
+										"Sem aviso, cinco humanos saem em disparada de entre dois edifícios à esquerda de vocês. Um homem mancando e três crianças pequenas atravessam a rua correndo em direção a mais sombras, e uma mulher com um escudo redondo e uma lança quebrada vira-se e encara o caminho de onde vieram. Sete kobolds jorram do beco no encalço da família e se espalham em torno da mulher, que parece determinada a atrasar as criaturas pelo maior tempo possível."
 									]
 								},
 								"The woman is {@creature Linan Swift|HotDQ}, and her husband is Cuth. Linan is a {@creature commoner} but with 8 hit points. Her attack with the spear is {@hit 2} to hit for {@dice 1d6} piercing damage. Her husband is down to 2 hit points from an earlier fight. The children move at speed 20. They can be carried, but a character carrying a child has disadvantage on attack rolls and cannot wield a two-handed weapon.",
@@ -1644,7 +1644,7 @@
 									"type": "insetReadaloud",
 									"id": "080",
 									"entries": [
-										"\"The guards have spotted a new threat. Raiders are trying to set fire to the town's mill. If it burns, we'll lose our stockpile of flour and we won't be able to grind more for months. I'm trying to assemble enough defenders from here in the keep to defend it through the rest of the night, but that will take time. You'd do us a great service if you could get to the mill quickly and drive away the raiders before they can set it aflame. You'll need to defend it until our force arrives to take over, but it shouldn't be more than fifteen minutes behind you.\""
+										"\"As sentinelas avistaram uma nova ameaça. Saqueadores estão tentando incendiar o moinho da cidade. Se pegar fogo, perderemos nosso estoque de farinha e não poderemos moer mais por meses. Estou tentando reunir defensores suficientes aqui no castelo para protegê-lo pelo resto da noite, mas isso levará tempo. Vocês nos fariam um grande favor se pudessem ir ao moinho rapidamente e afastar os saqueadores antes que consigam incendiá-lo. Precisarão defendê-lo até nossa força chegar para assumir, mas ela não deve demorar mais que quinze minutos atrás de vocês.\""
 									]
 								},
 								"The mill is about 500 feet from the keep. The distance is doubled if characters use the secret tunnel and follow the stream to stay hidden.",
@@ -1718,8 +1718,8 @@
 									"type": "insetReadaloud",
 									"id": "087",
 									"entries": [
-										"From the darkness, a creature strides into the dim light of the dying fires around the keep. Although it is shaped roughly like a human, it is at least seven feet tall, its skin is covered in blue scales, its fingers bear wicked claws, and its face has the muzzle and reptilian eyes of a dragon. The creature stops about eighty yards from the main gate of the keep and scans the walls. A line of kobolds fans out behind it. With their spears, they prod four human prisoners into the dim light. You can make out a woman, a teenage boy in a blood-soaked tunic, and two children. Then the half-dragon creature hails the keep.",
-										"\"Defenders of Greenest! This has been a successful night, and I am feeling generous. Do you see these four pitiful, useless prisoners? We have no need for them, so I will trade them back to you. Send out your best warrior to fight me, and you can have these four in exchange.\""
+										"Das trevas, uma criatura avança até a penumbra das brasas moribundas em torno do castelo. Embora tenha forma vagamente humana, mede pelo menos dois metros de altura; a pele está coberta de escamas azuis, os dedos terminam em garras ferozes, e o rosto traz o focinho e os olhos reptilianos de um dragão. A criatura para a cerca de setenta metros do portão principal do castelo e examina as muralhas. Uma fila de kobolds se espalha atrás dela. Com as lanças, empurram quatro prisioneiros humanos para a luz fraca. Vocês distinguem uma mulher, um adolescente de túnica ensanguentada e duas crianças. Então o semidragão chama o castelo.",
+										"\"Defensores de Greenest! Esta noite foi um sucesso, e estou me sentindo generoso. Veem estes quatro prisioneiros miseráveis e inúteis? Não precisamos deles, por isso os trocarei de volta. Enviem o melhor guerreiro de vocês para me enfrentar, e poderão ficar com estes quatro em troca.\""
 									]
 								},
 								"The speaker is {@creature Langdedrosa Cyanwrath|HotDQ} (see {@adventure appendix D|HotDQ|12} for statistics) a half-blue dragon who serves the Cult of the Dragon. Cyanwrath has a personal troop of sixteen {@creature Kobold||kobolds}. A character who makes a successful {@dc 15} Intelligence ({@skill Arcana}) or Intelligence ({@skill Nature}) check recognizes the creature as a half-dragon from descriptions.",
@@ -1782,7 +1782,7 @@
 					"type": "insetReadaloud",
 					"id": "08c",
 					"entries": [
-						"A young man walks up to you, limping heavily on his bandaged left leg. \"I hear that you intend to follow the raiders and see where they've gone. I'd like nothing better than to come with you, but in this condition, I'd slow you down. In the midst of all this tragedy, there's no reason you would have heard about the fate of my master, {@creature Leosin Erlanthar|HotDQ}, but it's important you know. He is a monk from Berdusk. He disappeared last night, after we fought a particularly savage battle against raiders. A few others and I fought our way to the keep, barely. Leosin didn't make it at all. We went back this morning to look for him, but all we found was his broken staff and this choker, which he always wore.\""
+						"Um jovem aproxima-se de vocês, mancando bastante com a perna esquerda enfaixada. \"Ouvi dizer que vocês pretendem seguir os saqueadores e descobrir para onde foram. Nada me faria mais feliz do que ir com vocês, mas neste estado eu só atrasaria o grupo. No meio de toda esta tragédia, não há motivo para vocês terem ouvido falar do destino do meu mestre, {@creature Leosin Erlanthar|HotDQ}, mas é importante que saibam. Ele é um monge de Berdusk. Desapareceu ontem à noite, depois de lutarmos numa batalha particularmente feroz contra os saqueadores. Alguns outros e eu conseguimos chegar ao castelo por pouco. Leosin não conseguiu. Voltámos esta manhã para procurá-lo, mas só encontrámos o seu cajado partido e este colar, que ele sempre usava.\""
 					]
 				},
 				"The monk's name is Nesim Waladra. After introductions are made, he continues.",
@@ -1790,7 +1790,7 @@
 					"type": "insetReadaloud",
 					"id": "08d",
 					"entries": [
-						"\"Leosin has been investigating these raiders for months. I fear that he might have tried to infiltrate their group when they retreated, or worse, was captured and carried away as a prisoner. No one understands these bandits better than he does, and his knowledge will be invaluable against them. When you find their camp, please look for any sign that Leosin is there. One of my brothers has already departed for Berdusk to bring back help, but it will be many days before help arrives. Anything you can do before then would be a godsend.\""
+						"\"Leosin anda a investigar estes saqueadores há meses. Receio que tenha tentado infiltrar-se no grupo deles quando recuaram, ou, pior ainda, que tenha sido capturado e levado como prisioneiro. Ninguém conhece estes bandidos melhor do que ele, e o seu conhecimento será inestimável contra eles. Quando encontrarem o acampamento deles, procurem qualquer sinal de que Leosin esteja lá. Um dos meus irmãos já partiu para Berdusk em busca de ajuda, mas passarão muitos dias até ela chegar. Tudo o que puderem fazer até lá seria uma dádiva dos deuses.\""
 					]
 				},
 				"Nesim answers the characters' questions to the best of his ability, but he also urges them to move quickly. The monks were returning to Berdusk from the great library at Candlekeep, where Leosin was consulting the librarians and researching ancient writings on dragon folklore. Dragon cults are his special interest.",
@@ -1801,9 +1801,9 @@
 					"page": 30,
 					"id": "08e",
 					"entries": [
-						"The raiders' path is easy to follow across the rolling grassland of the Greenfields. A wide swath of grass is trampled down, but it's impossible to determine the raiders' numbers precisely. The path only confirms what characters already know: there were a lot of them, and they were a mix of humans, kobolds, and trained reptiles. One bit of information can be gleaned with a successful {@dc 15} Wisdom ({@skill Perception}) check: Many of the beasts' footprints are deeper on the retreat than they were on the approach march. They were weighed down with loot on the homeward-bound trip, but let players reach that conclusion on their own. It's not possible to tell from the confusing jumble of prints whether any specific footprints are those of prisoners.",
-						"The trail leads south about twelve miles, to a more rugged region where steep-sided, rocky plateaus replace the gently rolling hills. The land between the plateaus is largely flat, broken only by outcroppings and wandering streams in steep-sided gullies. The plateaus jut fifty to one hundred feet above their surroundings and are difficult to climb except where rock falls and subsidence created natural ramps. The crumbling sides of the plateaus are dotted with caves and tumbled boulder fields.",
-						"Characters can have two encounters during this trip. The first is with a group of raiders who have straggled behind the main body. They are disorganized and quarrelsome, and they should be easy prey for alert adventurers. The second group is an organized rearguard watching specifically for pursuers from the town. They present a much graver threat.",
+						"O rasto dos saqueadores é fácil de seguir pelas planícies onduladas dos Greenfields. Uma grande faixa de relva está pisada, mas é impossível determinar com precisão o número de saqueadores. O rasto apenas confirma o que os personagens já sabem: eram muitos, e era uma mistura de humanos, kobolds e répteis treinados. Uma informação pode ser obtida com um teste bem-sucedido de Sabedoria ({@skill Perception}) CD {@dc 15}: muitas das pegadas das feras são mais profundas na retirada do que na marcha de aproximação. Voltavam carregados de espólio no regresso, mas deixem os jogadores chegar a essa conclusão por conta própria. Não é possível distinguir, na confusão de pegadas, se alguma pertence a prisioneiros.",
+						"O rasto segue para sul cerca de doze milhas, até uma região mais acidentada onde planaltos rochosos de paredes íngremes substituem as colinas suavemente onduladas. A terra entre os planaltos é em grande parte plana, interrompida apenas por afloramentos e ribeiros sinuosos em ravinas de paredes íngremes. Os planaltos elevam-se cinquenta a cem pés acima dos arredores e são difíceis de escalar, exceto onde quedas de rochas e subsidência criaram rampas naturais. As encostas desmoronadas dos planaltos estão salpicadas de grutas e campos de pedras.",
+						"Os personagens podem ter dois encontros durante esta viagem. O primeiro é com um grupo de saqueadores que ficou para trás do contingente principal. Estão desorganizados e briguentos, e devem ser presa fácil para aventureiros alertas. O segundo grupo é uma retaguarda organizada que vigia especificamente perseguidores vindos da cidade. Representam uma ameaça muito mais grave.",
 						{
 							"type": "inset",
 							"name": "Cult of the Dragon Ranks",
@@ -1821,6 +1821,24 @@
 							"page": 30,
 							"id": "090",
 							"entries": [
+								{
+									"type": "image",
+									"href": {
+										"type": "internal",
+										"path": "adventure/HotDQ/stragglers-camp.png"
+									},
+									"title": "Stragglers — acampamento",
+									"width": 1024,
+									"height": 768,
+									"imageType": "map",
+									"grid": {
+										"type": "square",
+										"size": 41,
+										"offsetY": 15
+									},
+									"id": "290",
+									"mapRegions": []
+								},
 								"Characters spot this group's cooking fire smoke from several miles away, because the stragglers stopped to roast a few prairie hens for a meal. They sought shelter in a low spot between surrounding hills, where tall boulders have rolled into a loose jumble. In fact, the surroundings offer no protection while making it easier for enemies to sneak up on the site.",
 								"By observing for a few minutes, characters can discern that there are four human {@creature Cultist||cultists} and eight {@creature Kobold||kobolds} in the group. The kobolds and humans distrust each other, and although the cultists act as if they're the bosses, their leadership amounts to nothing more than ineffectual bullying. The humans' weapons are stacked against a rock, out of easy reach. The kobolds have their weapons on their belts.",
 								"If the group is left alone, the kobolds grab their share of the half-cooked lunch and move about fifty yards away to eat, while the humans continue squabbling over how to cook a hen and the uselessness of kobolds as allies.",
@@ -1854,6 +1872,25 @@
 									"title": "{@creature Frulam Mondath|HotDQ}",
 									"width": 674,
 									"height": 1000
+								},
+								{
+									"type": "image",
+									"href": {
+										"type": "internal",
+										"path": "adventure/HotDQ/rearguard-camp.png"
+									},
+									"title": "Rearguard — emboscada",
+									"width": 682,
+									"height": 1024,
+									"imageType": "map",
+									"grid": {
+										"type": "square",
+										"size": 49,
+										"offsetX": -2,
+										"offsetY": -2
+									},
+									"id": "291",
+									"mapRegions": []
 								},
 								"If the characters learn of the camp location and probable site of the rearguard from the stragglers, they can use that information to bypass this encounter entirely. In fact, that would be the smart thing to do, both because it negates a damaging fight and because if the rearguard is wiped out, leaders in the cult will wonder why it never reported back. The best result for the characters is if the outpost checks in at the correct time with an \"all clear.\"",
 								"The rearguard consists of one {@creature veteran}, six {@creature Cultist||cultists}, and two {@creature Acolyte||acolytes}. The guard and cultists have spears for both ranged and melee combat. They are positioned in an area where the trail winds through a gap between two outcrops. The ambushers are hidden in the rocks, 12 to 15 feet above ground level. Characters might detect the ambush, with the odds depending on what they know and how they approach the area.",
@@ -2111,15 +2148,15 @@
 									"type": "image",
 									"href": {
 										"type": "internal",
-										"path": "adventure/HotDQ/013-map-2-1-raider-camp-player.webp"
+										"path": "adventure/HotDQ/raider-camp-v2.jpeg"
 									},
 									"title": "Player Version",
-									"width": 3375,
-									"height": 2500,
+									"width": 1024,
+									"height": 768,
 									"imageType": "mapPlayer",
 									"grid": {
 										"type": "none",
-										"size": 312,
+										"size": 95,
 										"distance": 100
 									},
 									"mapParent": {
